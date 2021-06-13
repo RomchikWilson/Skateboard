@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 8311012809742110275}
   - component: {fileID: 7520250192148025534}
+  - component: {fileID: 4773440817737830532}
   m_Layer: 0
   m_Name: Boards
   m_TagString: Boards
@@ -48,7 +49,20 @@ BoxCollider:
   m_Enabled: 1
   serializedVersion: 2
   m_Size: {x: 1.0280516, y: 0.5, z: 0.75438344}
-  m_Center: {x: -0.010864139, y: 0.21018258, z: 0.025246024}
+  m_Center: {x: -0.010864139, y: 0.2, z: 0.025246024}
+--- !u!114 &4773440817737830532
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6419678977925491064}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f7b3a773ca19d1343b9f5faaaa925a13, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  speedRotate: 2
 --- !u!1001 &2652222971970627560
 PrefabInstance:
   m_ObjectHideFlags: 0

@@ -8,40 +8,49 @@ public class PlayerController : MonoBehaviour
     public static Action<int> BuildBoard = default;
     public static Action BuildFirstThreeBoard = default;
 
+    [Header("Object references")]
     [SerializeField] private ParticleSystem particle = default;
-    [SerializeField] private GameStorage gameStorageSO = default;
+    [SerializeField] private GameObject bottom1;
+    [SerializeField] private GameObject bottom2;
+    [SerializeField] private GameObject prefabBoard = default;
     [SerializeField] private List<GameObject> boardsOnScateboard;
-    [SerializeField] private List<GameObject> boards;
-    [SerializeField] private GameObject bottom;
+
+    [Header("Camera & UI")]
+    [SerializeField] private Slider slider = default;
+    [SerializeField] private Transform cameraPoint = default;
+
+    [Header("Settings")]
+    [SerializeField] private GameStorage gameStorageSO = default;
+    [SerializeField] private GameObject parentOfBoards = default;
+    [SerializeField] private int numberOfBoards = 100;    
     [SerializeField] private float maxBoardSpeed = 5f;
     [SerializeField] private float maxBoardSpeedAngular = 5f;
-    [SerializeField] private Transform cameraPoint = default;
-    [SerializeField] private Slider slider = default;
+    [SerializeField] private float deadlyHeight = 5f;
 
+    private List<GameObject> boards = default;
     private float velocityPlayer = 1f;
     private Rigidbody rigidBody;
     private int numberBoardsOnScateboard;
     private int countBoardsOnScateboard;
-    private int countBoards;
     private int indexSpawnBoard = 0;
     private Vector3 positionBottom;
     private Vector3 positionLastBoard;
+    private int touchingTheGround;
+    private Vector3 startingPosition;
+    private Quaternion startingRotation;
 
     void Awake()
     {
-        countBoards = boards.Count;
         countBoardsOnScateboard = boardsOnScateboard.Count;
+        
+        startingPosition = transform.position;
+        startingRotation = transform.rotation;
 
         velocityPlayer = gameStorageSO.DeltaScateboardForce;
         rigidBody = GetComponent<Rigidbody>();
 
         BuildBoard += SpawnBoard;
         BuildFirstThreeBoard += SpawnFirstThreeBoard;
-    }
-
-    private void Start()
-    {
-        CameraController.SetTargetAction?.Invoke(cameraPoint);
     }
 
     void OnEnable()
@@ -64,51 +73,119 @@ public class PlayerController : MonoBehaviour
 
     private void PrepareScatebord()
     {
+        CameraController.SetTargetAction?.Invoke(cameraPoint);
+
+        transform.position = startingPosition;
+        transform.rotation = startingRotation;
+
         particle.Stop();
+
+        touchingTheGround = 0;
         indexSpawnBoard = 0;
+
+        for (int i = 0; i < boardsOnScateboard.Count; i++)
+        {
+            boardsOnScateboard[i].SetActive(false);
+        }
+
+        if (boards != null)
+        {        
+            for (int i = 0; i < boards.Count; i++)
+            {
+                boards[i].transform.localPosition = Vector3.zero;
+            }
+        }
+
+        rigidBody.velocity = Vector3.zero;
+        rigidBody.angularVelocity = Vector3.zero;
+
+        InitialBoardSpawn();
     }
 
     private void FixedUpdate()
     {
-        if (gameStorageSO.GameState == GameState.InGame)
+        if (gameStorageSO.GameState == GameState.InGame && touchingTheGround > 0)
         {
             rigidBody.AddForce(rigidBody.transform.forward  * velocityPlayer, ForceMode.Impulse);
-            //rigidBody.AddTorque(-rigidBody.transform.right * velocityPlayer / 50f, ForceMode.Impulse);
         }
+
+        //transform.eulerAngles = new Vector3(Mathf.Clamp(transform.rotation.eulerAngles.x, -45, 45), transform.rotation.eulerAngles.y, transform.rotation.eulerAngles.z);
+
         rigidBody.velocity = new Vector3(rigidBody.velocity.x, rigidBody.velocity.y, rigidBody.velocity.z > maxBoardSpeed ? maxBoardSpeed : rigidBody.velocity.z);
         rigidBody.angularVelocity = new Vector3(rigidBody.angularVelocity.x > maxBoardSpeedAngular ? maxBoardSpeed : rigidBody.angularVelocity.x, rigidBody.angularVelocity.y, rigidBody.angularVelocity.z);
+
+        //Проигрыш при падении
+        if (transform.position.y <= deadlyHeight)
+        {
+            Debug.Log("Player is in the deadly zone");
+            CameraController.SetTargetAction?.Invoke(default);
+            GameManager.EndOfLevel?.Invoke(false);
+        }
     }
 
     void OnTriggerEnter(Collider collision)
     {
-        if (collision.gameObject.tag == "Boards") 
+        switch (collision.gameObject.tag) 
         {
-            collision.gameObject.SetActive(false);
+            case "Boards":
+                Debug.Log("Player touched the board");
+                collision.gameObject.SetActive(false);
 
-            numberBoardsOnScateboard = gameStorageSO.NumberBoardsOnScateboard;
-            int count = 0;
+                numberBoardsOnScateboard = gameStorageSO.NumberBoardsOnScateboard;
+                int count = 0;
 
-            if (numberBoardsOnScateboard + 5 > countBoardsOnScateboard)
-            {
-                count = countBoardsOnScateboard;
-            }
-            else
-            {
-                count = numberBoardsOnScateboard + 5;
-            }
+                if (numberBoardsOnScateboard + 5 > countBoardsOnScateboard)
+                {
+                    count = countBoardsOnScateboard;
+                }
+                else
+                {
+                    count = numberBoardsOnScateboard + 5;
+                }
 
-            for (int i = numberBoardsOnScateboard; i < count; i++) 
-            {
-                boardsOnScateboard[i].SetActive(true);
-            }
+                for (int i = numberBoardsOnScateboard; i < count; i++)
+                {
+                    boardsOnScateboard[i].SetActive(true);
+                }
 
-            gameStorageSO.NumberBoardsOnScateboard = count;
+                gameStorageSO.NumberBoardsOnScateboard = count;
+
+                break;
+
+            case "Barrier":
+                Debug.Log("Player touched the barrier");
+                particle.Stop();
+                CameraController.SetTargetAction?.Invoke(default);
+                GameManager.EndOfLevel?.Invoke(false);
+
+                break;
+
+            case "FinishPoint":
+                Debug.Log("Player finished");
+                particle.Stop();
+                GameManager.EndOfLevel?.Invoke(true);
+                rigidBody.AddForce(-rigidBody.velocity);
+
+                break;
+
+            default:
+                break;
         }
+    }
+
+    public void OnCollisionEnter(Collision collision)
+    {
+        if (collision.gameObject.tag == "Ground" && (gameStorageSO.GameState == GameState.InGame || gameStorageSO.GameState == GameState.OnStart)) touchingTheGround++;
+    }
+
+    public void OnCollisionExit(Collision collision)
+    {
+        if (collision.gameObject.tag == "Ground" && gameStorageSO.GameState == GameState.InGame) touchingTheGround--;
     }
 
     void SpawnBoard(int currencySwipeDistance)
     {
-        positionBottom = bottom.transform.position; //Получаем нижнюю точку скейтборда
+        positionBottom = bottom1.transform.position; //Получаем нижнюю точку скейтборда
         Vector3 positionNewBoard = new Vector3(positionBottom.x, positionLastBoard.y, positionBottom.z + .76f); //Получаем позицию новой доски
         numberBoardsOnScateboard = gameStorageSO.NumberBoardsOnScateboard; //Получаем количество досок на скейтборде
 
@@ -121,16 +198,18 @@ public class PlayerController : MonoBehaviour
 
         boards[indexSpawnBoard].transform.position = positionLastBoard; //Спавним доску перед скейтом
 
+        boards[indexSpawnBoard].transform.LookAt(boards[indexSpawnBoard == 0 ? numberOfBoards - 1 : indexSpawnBoard - 1].transform);
+
         boardsOnScateboard[numberBoardsOnScateboard - 1].SetActive(false); //Убираем 1 доску с скейта
 
-        if (++indexSpawnBoard > countBoards - 1) indexSpawnBoard = 0;
+        if (++indexSpawnBoard > numberOfBoards - 1) indexSpawnBoard = 0;
 
         gameStorageSO.NumberBoardsOnScateboard--;
     }
     
     void SpawnFirstThreeBoard()
     {
-        positionBottom = bottom.transform.position;
+        positionBottom = touchingTheGround > 0 ? bottom1.transform.position : bottom2.transform.position;
 
         numberBoardsOnScateboard = gameStorageSO.NumberBoardsOnScateboard; //Получаем количество досок на скейтборде
 
@@ -154,7 +233,7 @@ public class PlayerController : MonoBehaviour
 
             positionLastBoard = boards[indexSpawnBoard].transform.position; //Запоминаем позицию последней заспавненой доски
 
-            if (++indexSpawnBoard > countBoards - 1) indexSpawnBoard = 0;
+            if (++indexSpawnBoard > numberOfBoards - 1) indexSpawnBoard = 0;
         }
 
         //Спавним вторую доску
@@ -164,7 +243,7 @@ public class PlayerController : MonoBehaviour
 
             positionLastBoard = boards[indexSpawnBoard].transform.position; //Запоминаем позицию последней заспавненой доски
 
-            if (++indexSpawnBoard > countBoards - 1) indexSpawnBoard = 0;
+            if (++indexSpawnBoard > numberOfBoards - 1) indexSpawnBoard = 0;
         }
 
         //Спавним третью доску
@@ -174,7 +253,17 @@ public class PlayerController : MonoBehaviour
 
             positionLastBoard = boards[indexSpawnBoard].transform.position; //Запоминаем позицию последней заспавненой доски
 
-            if (++indexSpawnBoard > countBoards - 1) indexSpawnBoard = 0;
+            if (++indexSpawnBoard > numberOfBoards - 1) indexSpawnBoard = 0;
+        }
+    }
+
+    void InitialBoardSpawn()
+    {
+        boards = new List<GameObject>(numberOfBoards);
+
+        for (int i = 0; i < numberOfBoards; i++) 
+        {
+            boards.Add(Instantiate(prefabBoard, parentOfBoards.transform));
         }
     }
 }

@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: eba2eea8c5643544cb93a0c95f3880bd, type: 3}
   m_Name: GameStorageSO
   m_EditorClassIdentifier: 
-  gameState: 1
-  scateboardVelocity: 0.25
-  numberBoardsOnScateboard: 0
+  gameState: 2
+  scateboardVelocity: 0.5
+  numberBoardsOnScateboard: 3
+  countLevel: 3

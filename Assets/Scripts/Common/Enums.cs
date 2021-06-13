@@ -1,5 +1,6 @@
 public enum GameState
 {
     OnStart,
-    InGame  
+    InGame,
+    OnFinish
 }
